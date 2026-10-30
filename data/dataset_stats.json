@@ -1,0 +1,14 @@
+{
+  "dataset_name": "Helsinki-NLP/opus-100",
+  "dataset_url": "https://huggingface.co/datasets/Helsinki-NLP/opus-100",
+  "language_pair": "en-it",
+  "random_seed": 42,
+  "train_pairs": 24000,
+  "val_pairs": 3000,
+  "test_pairs": 1000,
+  "total_selected_pairs": 28000,
+  "mean_en_words": 11.02,
+  "mean_it_words": 10.66,
+  "max_en_words": 35,
+  "max_it_words": 35
+}

@@ -1,0 +1,23 @@
+{
+  "model_name": "mT5-small (Finetuned)",
+  "total_parameters": 300176768,
+  "trainable_parameters": 300176768,
+  "total_training_time_sec": 1288.97,
+  "best_val_loss": 2.2429,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 4.3849,
+      "val_loss": 2.4075,
+      "val_ppl": 11.11,
+      "epoch_time_sec": 648.72
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.8272,
+      "val_loss": 2.2429,
+      "val_ppl": 9.42,
+      "epoch_time_sec": 640.25
+    }
+  ]
+}

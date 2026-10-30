@@ -1,0 +1,65 @@
+{
+  "model_name": "Basic Transformer (Scratch)",
+  "total_parameters": 9933824,
+  "trainable_parameters": 9933824,
+  "total_training_time_sec": 310.46,
+  "best_val_loss": 5.4376,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 7.1753,
+      "val_loss": 6.6537,
+      "val_ppl": 775.66,
+      "epoch_time_sec": 36.14
+    },
+    {
+      "epoch": 2,
+      "train_loss": 6.3812,
+      "val_loss": 6.1788,
+      "val_ppl": 482.39,
+      "epoch_time_sec": 36.46
+    },
+    {
+      "epoch": 3,
+      "train_loss": 6.0342,
+      "val_loss": 5.9109,
+      "val_ppl": 369.03,
+      "epoch_time_sec": 38.85
+    },
+    {
+      "epoch": 4,
+      "train_loss": 5.7762,
+      "val_loss": 5.721,
+      "val_ppl": 305.21,
+      "epoch_time_sec": 40.38
+    },
+    {
+      "epoch": 5,
+      "train_loss": 5.5824,
+      "val_loss": 5.5907,
+      "val_ppl": 267.92,
+      "epoch_time_sec": 39.4
+    },
+    {
+      "epoch": 6,
+      "train_loss": 5.4461,
+      "val_loss": 5.5087,
+      "val_ppl": 246.82,
+      "epoch_time_sec": 40.06
+    },
+    {
+      "epoch": 7,
+      "train_loss": 5.3531,
+      "val_loss": 5.4662,
+      "val_ppl": 236.57,
+      "epoch_time_sec": 39.53
+    },
+    {
+      "epoch": 8,
+      "train_loss": 5.2986,
+      "val_loss": 5.4376,
+      "val_ppl": 229.88,
+      "epoch_time_sec": 39.63
+    }
+  ]
+}

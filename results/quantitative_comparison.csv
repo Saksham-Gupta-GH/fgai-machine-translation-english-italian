@@ -1,0 +1,4 @@
+model_name,paradigm,total_params,trainable_params,training_time_min,latency_ms,bleu,chrf,chrf_pp
+Basic Transformer (Scratch),Encoder-Decoder,9933824,9933824,5.17,92.21,30.21,39.73,39.99
+mT5-small (Finetuned),Encoder-Decoder,300176768,300176768,21.48,31.99,21.36,42.84,38.36
+Qwen 2.5 1.5B (Few-Shot),Decoder-Only,1543714304,0,N/A (Prompted),969.38,15.11,38.05,32.86
