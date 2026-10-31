@@ -1,200 +1,86 @@
-# Comparative Neural Machine Translation: English to Italian across Encoder-Decoder and Decoder-Only Architectures
+# English-to-Italian machine translation — FGAI Assignment 3
 
-**Foundations of Generative AI (ICT4403) - Assignment 3**  
-**Student Name:** Saksham Gupta  
-**Registration Number:** 230911186  
-**GitHub Repository:** [https://github.com/Saksham-Gupta-GH/fgai-machine-translation-english-italian](https://github.com/Saksham-Gupta-GH/fgai-machine-translation-english-italian)  
-**Dataset Source:** [https://huggingface.co/datasets/Helsinki-NLP/opus-100](https://huggingface.co/datasets/Helsinki-NLP/opus-100)  
+**Saksham Gupta · 230911186 · ICT4403**
 
----
+Compare a Transformer trained from scratch, fine-tuned mT5-small, and prompted LLaMA/Gemma on the same parallel-text test set. Qwen is an additional baseline, not a replacement for either required decoder-only model.
 
-## 1. Problem Statement and Objective
+## Current status
 
-Machine Translation (MT) has evolved from recurrence-based sequence modeling to attention-driven paradigms. This project investigates and compares the two prevailing architectural designs in modern generative NLP:
-1. **The Encoder-Decoder Paradigm**: Represented by a custom **Basic Transformer** (trained from scratch) and Google's pretrained **mT5-small** (adapted via sequence-to-sequence fine-tuning).
-2. **The Decoder-Only Paradigm**: Represented by Meta's **LLaMA 3.2 1B-Instruct** and Google's **Gemma 2 2B-it** (adapted via structured in-context few-shot prompting and parameter-efficient LoRA fine-tuning).
+- Basic Transformer: trained for 8 epochs; recorded training time 5.17 minutes.
+- mT5-small: fine-tuned for 2 epochs; recorded training time 21.48 minutes.
+- Qwen 2.5 1.5B: original prompted run completed; corrected evaluation pending.
+- LLaMA 3.2 1B-Instruct and Gemma 2 2B-it: evaluation support exists; results are **pending**, not completed experiments.
+- Original notebook BLEU/chrF scores used incorrectly shaped references. They are invalid and retained only in `results/legacy_invalid_metrics/`. No winner can be established from those scores.
+- Corrected evaluations save full translations, references, dataset hash, sample count, device, parameter count, decoding settings and metrics in `results/corrected/`.
 
-The system translates English source text into natural, fluent Italian ($en \to it$). All four models are benchmarked on the **identical held-out test set** under standardized, comparable decoding configurations (`do_sample=False` greedy search baseline). The models are evaluated on BLEU, chrF, chrF++, training wall-clock time, inference latency per sentence, and parameter efficiency. Furthermore, we conduct an empirical sampling-temperature sweep and an in-depth responsible AI evaluation across 35 targeted linguistic probes assessing occupational gender bias, grammatical agreement, cultural idioms, and negation preservation.
+The submission PDF is maintained separately and has not been changed by this repair.
 
----
+## Dataset and experimental setup
 
-## 2. Dataset Description and Zero-Leakage Deduplication
+Source: [Helsinki-NLP/opus-100](https://huggingface.co/datasets/Helsinki-NLP/opus-100), English–Italian.
 
-### 2.1 Primary Corpus: Helsinki-NLP/opus-100 (en-it)
-The primary dataset is the English-Italian parallel split of the **Helsinki-NLP/opus-100** corpus (Zhang et al., 2020), an established multilingual benchmark derived from OPUS covering conversational, literary, and informational text.
+The executed notebook takes the original training split, strips surrounding whitespace, keeps pairs with 4–35 whitespace-separated words in each language, and retains the first pair per lowercased English source. It collects 32,000 unique sources, shuffles using Python seed 42, then uses 24,000 for training, 3,000 for validation and 1,000 for testing. The remaining 4,000 are unused. Among the 28,000 used pairs the proportions are 85.71%, 10.71%, and 3.57%.
 
-- **Total Available Parallel Sentences:** 1,000,000 pairs
-- **Source Link:** [https://huggingface.co/datasets/Helsinki-NLP/opus-100](https://huggingface.co/datasets/Helsinki-NLP/opus-100)
+The scratch model uses a 10,000-token SentencePiece BPE vocabulary learned only from the training sentences. mT5 and the decoder-only models use their pretrained tokenizers. Exact-source deduplication reduces overlap; it does not prove the absence of semantic duplicates or pretrained-data contamination.
 
-### 2.2 Source-Level Deduplication Protocol (Zero-Leakage Guarantee)
-Public translation corpora often contain multiple candidate target translations for the same source sentence. A naive random split would place identical English sentences into both training and test sets, artificially inflating test scores. To prevent leakage:
-1. **Grouping by English Source:** We group strictly by lowercased, normalized English source sentences and retain one canonical Italian target per unique English sentence.
-2. **Length and Ratio Filtering:** Discard noisy pairs where source or target length falls outside 4 to 35 words, or where the length ratio exceeds 2.2:1.
-3. **Randomized Sizing:** After deduplication, the dataset is shuffled with fixed `SEED = 42` to eliminate topic or length bias.
+**Provenance warning:** The original standalone preprocessing script and the executed notebook used different selection/cleaning rules. The recovery workflow reconstructs the notebook dataset and tokenizer from its recorded code. Do not use an unrelated tokenizer with the trained scratch checkpoint. `data/` contains the earlier standalone pipeline data; `recovered_run/data/` is the recovered notebook run used for corrected evaluation.
 
-### 2.3 Dataset Partitions (80 / 10 / 10)
-- **Training Set (80%):** 24,000 unique parallel pairs
-- **Validation Set (10%):** 3,000 unique parallel pairs
-- **In-Domain Benchmark Test Set (10%):** 1,000 unique parallel pairs (subsampled uniformly for tractable Apple Silicon MPS inference)
-- **Domain-Shift Benchmark:** 500 parallel sentences from FLORES-200 (`ita_Latn`) to assess cross-domain transfer from conversational to news text.
+## Models
 
----
+| Model | Adaptation | Recorded parameters |
+|---|---|---:|
+| Basic Transformer | Full training, 4 encoder and 4 decoder layers, width 256, 4 heads | 9,933,824 |
+| mT5-small | Full fine-tuning, task prefix `translate English to Italian: ` | 300,176,768 |
+| LLaMA 3.2 1B-Instruct | Three-shot prompting; pending execution | Counted at evaluation |
+| Gemma 2 2B-it | Three-shot prompting; pending execution | Counted at evaluation |
+| Qwen 2.5 1.5B-Instruct | Supplementary three-shot baseline | 1,543,714,304 |
 
-## 3. Model Architecture Descriptions
+No completed LoRA experiment or FLORES benchmark is claimed. Training history and loss curves are retained. The scratch model's logged `val_ppl` exponentiates label-smoothed loss and is not standard unsmoothed perplexity; it should not be compared directly with mT5 perplexity.
 
-| Feature | Model 1: Basic Transformer | Model 2: mT5-small | Model 3: LLaMA 3.2 1B | Model 4: Gemma 2 2B |
-| :--- | :---: | :---: | :---: | :---: |
-| **Paradigm** | Encoder-Decoder | Encoder-Decoder | Decoder-Only | Decoder-Only |
-| **Origin** | Built from scratch (PyTorch) | Google Pretrained (Hugging Face) | Meta Pretrained | Google Pretrained |
-| **Total Parameters** | 9,933,824 (~9.93M) | ~300,199,424 (~300M) | 1,235,814,400 (1.23B) | 2,614,341,888 (2.61B) |
-| **Trainable Parameters** | 9,933,824 (100%) | 300,199,424 (100%) | 0 (Few-Shot) / 16.8M (LoRA) | 0 (Few-Shot Prompted) |
-| **Tokenizer** | SentencePiece BPE (10,000 vocab) | mT5 SentencePiece (250,100 vocab) | Tiktoken BPE (128,256 vocab) | Gemma SentencePiece (256,000 vocab) |
-| **Positional Encoding** | Fixed Sinusoidal | Relative Position Biases | RoPE (Rotary Embeddings) | RoPE + Sliding Window |
-| **Runtime Precision** | float32 | float32 (eliminates MPS NaNs) | bfloat16 (eager attention) | bfloat16 (eager attention) |
-| **Adaptation Method** | Full gradient training (8 epochs) | Seq2Seq fine-tuning (2 epochs) | 3-shot prompting & LoRA PEFT | 3-shot prompting (User turn) |
+## Run without retraining
 
-### Architectural Details
-1. **Basic Transformer (From Scratch):** Implements classic sequence-to-sequence attention (Vaswani et al., 2017). 4 encoder layers, 4 decoder layers, $d_{\text{model}} = 256$, $d_{\text{ff}} = 1024$, 4 attention heads, fixed sinusoidal positional embeddings, and label smoothing ($\epsilon = 0.1$). Subwords are learned strictly on the 24,000 training pairs.
-2. **mT5-small (Pretrained Encoder-Decoder):** Pretrained on the multilingual mC4 corpus using masked span denoising. Fine-tuned with the task prefix `"translate English to Italian: "` using sequence-to-sequence cross-entropy. Executed strictly in `torch.float32` to prevent known fp16 LayerNorm NaN instability on Apple Silicon.
-3. **LLaMA 3.2 1B-Instruct (Decoder-Only):** Evaluated under structured 3-shot in-context demonstration with chat templates. Also benchmarked with LoRA ($r=16, \alpha=32$ on query/key/value/output projection matrices) to record fine-tuning wall-clock time and parameter adaptation efficiency.
-4. **Gemma 2 2B-it (Decoder-Only):** Evaluated under structured 3-shot in-context demonstration. Gemma 2 does not support a system role; instructions are formatted directly inside the initial user turn to prevent template parsing errors.
-
----
-
-## 4. Execution Steps and Dependencies
-
-### Prerequisites
-- Python 3.9+
-- Hardware: Apple Silicon (MPS), NVIDIA GPU (CUDA), or CPU
-
-### Installation
 ```bash
-git clone https://github.com/Saksham-Gupta-GH/fgai-machine-translation-english-italian.git
-cd fgai-machine-translation-english-italian
 pip install -r requirements.txt
+# Recover your downloaded Kaggle archive (weights remain ignored by git).
+python scripts/recover_saved_run.py --archive /path/to/results.zip
+# Re-evaluate the trained models. No training is performed.
+python scripts/evaluate_saved.py --models transformer mt5
+# Requires accepted model terms and Hugging Face authentication:
+hf auth login
+python scripts/evaluate_saved.py --models llama gemma
+# Optional additional baseline:
+python scripts/evaluate_saved.py --models qwen
 ```
 
-### End-to-End Master Execution
-To execute the complete pipeline (dataset preprocessing, tokenizer training, from-scratch Transformer training, mT5 fine-tuning, LLM translation, evaluation, temperature sweep, and ethical AI probing):
-```bash
-python3 run_experiments.py
-```
+The recovery script needs the source dataset (downloaded or cached). `--cached-arrow /path/to/opus-100-train.arrow` supports offline recovery. Existing recovered data/checkpoints are not overwritten. Keep the original `results.zip` as a backup. Large weights are not uploaded to GitHub.
 
----
+The evaluation script defaults to the full 1,000-sentence recovered test set, greedy decoding, at most 64 generated tokens and batch size 1 for every model. It warms up each model and synchronizes the accelerator around timing. Models are loaded sequentially. A missing checkpoint/access failure exits visibly instead of claiming a complete four-model comparison. For a smoke test, use `--limit 5 --output /tmp/fgai-smoke`; do not compare that output with full-test results.
 
-## 5. Quantitative Evaluation and Model Comparison (Part ii)
+To train from scratch intentionally, use `python run_experiments.py`. That is a separate workflow and is not necessary to reuse the saved Kaggle models.
 
-All three architectures were evaluated on the **exact same 1,000 held-out test sentence pairs** under standardized greedy decoding (`do_sample=False`).
+## Evaluation and comparison
 
-| Model Architecture | Paradigm | Total Parameters | Trainable Parameters | Train Time (min) | Latency (ms/sent) | BLEU Score | chrF Score | chrF++ Score |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Basic Transformer** | Encoder-Decoder | 9,933,824 | 9,933,824 | 5.17 | 92.21 | 30.21 | 39.73 | 39.99 |
-| **mT5-small (Finetuned)** | Encoder-Decoder | 300,176,768 | 300,176,768 | 21.48 | 31.99 | 21.36 | 42.84 | 38.36 |
-| **Qwen 2.5 1.5B (Few-Shot)** | Decoder-Only | 1,543,714,304 | 0 | N/A (Prompted) | 969.38 | 15.11 | 38.05 | 32.86 |
+Corpus metrics use `sacrebleu.corpus_bleu(predictions, [references])` and equivalent chrF calls. Standard chrF uses `word_order=0`; chrF++ uses `word_order=2`. Prediction/reference counts are checked before scoring. Full outputs are saved so rescoring does not require inference or training.
 
-*Note: BLEU is computed using case-sensitive standard `sacrebleu` (13a tokenizer). chrF reflects character n-gram F-score with `word_order=0`, while chrF++ includes word bigrams with `word_order=2`.*
+Compare only runs with matching test hashes, sample counts, hardware and decoding settings. Even with those controls, model size, pretraining, precision, tokenization and adaptation differ: these experiments do not isolate architecture as a causal variable. Old timing values mixed batch sizes (mT5 32, others 1), so the earlier claim of a roughly 30-fold architecture speed advantage is withdrawn.
 
-### In-Depth Architectural Comparison
-1. **Encoder-Decoder vs. Decoder-Only:**
-   - The Encoder-Decoder models process source text bidirectionally through encoder self-attention, generating target tokens autoregressively via cross-attention. mT5-small achieves the lowest inference latency (**31.99 ms/sent**), nearly 30x faster than the 1.5B autoregressive decoder (**969.38 ms/sent**).
-   - The Decoder-Only model (Qwen 2.5 1.5B) produces high lexical chrF (**38.05**) without any task-specific parameter training, but has higher sequential latency per token.
-2. **From-Scratch Training Dynamics:**
-   - The Basic Transformer, trained from scratch on 24,000 pairs in 5.17 minutes, converged cleanly to validation loss 5.4376 (PPL 229.88), achieving a strong in-domain BLEU of **30.21** and chrF++ of **39.99**, demonstrating exceptional parameter efficiency (9.93M parameters).
-3. **Pretrained Seq2Seq Adaptation:**
-   - mT5-small converged from validation loss 2.4075 to 2.2429 (PPL 9.42) across 2 epochs, reaching a chrF of **42.84**, reflecting strong Italian subword morphology learned during multilingual pretraining.
+To rescore completed outputs without loading any models, run `python scripts/summarize_results.py`. Run regression checks with `python -m unittest discover -s tests -v`.
 
----
+## Temperature analysis
 
-## 6. Sampling Temperature Sweep Analysis
+The original Qwen sweep used temperatures 0.2, 0.5, 0.7 and 1.0 on 300 test examples. Its BLEU/chrF scores share the reference-shape error and cannot support a temperature recommendation. Its original diversity calculation also joined sentences before forming n-grams. The corrected notebook uses sentence boundaries for diversity and saves sampled predictions. Rerun that evaluation cell with existing loaded models to obtain a valid sweep; no new training is needed.
 
-To evaluate how decoding randomness impacts translation quality, diversity, and repetition, we conducted a temperature sweep across $T \in \{0.2, 0.5, 0.7, 1.0\}$ on a dedicated 300-sentence test subset using fixed `SEED = 42`.
+## Responsible AI: observations supported by saved samples
 
-| Sampling Strategy | Temperature (T) | BLEU Score | chrF++ Score | Distinct-1 | Distinct-2 | Trigram Repetition (%) | Qualitative Assessment |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Sampled** | 0.2 | 14.06 | 32.86 | 0.5351 | 0.9440 | 0.47% | Highly conservative; close to greedy output |
-| **Sampled** | 0.5 | 14.06 | 32.86 | 0.5421 | 0.9527 | 0.25% | Increased lexical diversity; lowest trigram repetition |
-| **Sampled** | 0.7 | 14.06 | 32.86 | 0.5406 | 0.9471 | 0.44% | Moderate entropy; subtle syntactic variations |
-| **Sampled** | 1.0 | 25.41 | 37.24 | 0.5528 | 0.9520 | 0.18% | Broad lexical coverage; highest Distinct-1 ratio (0.5528) |
+The 35-probe outputs in `results/ethical_probe_results.json` cover the scratch Transformer, mT5 and Qwen only. They do not establish LLaMA/Gemma behavior.
 
----
+- Gender: inspect occupation defaults and explicit feminine agreement manually. Keyword-based tags are only screening heuristics, not validated bias measurements.
+- Meaning and hallucination: Qwen translates the midnight boundary as `23.00` in one saved probe, changing the time. mT5 also makes substantial lexical errors. Fluency alone is insufficient evidence of fidelity.
+- Cultural idioms: saved outputs include failed translations; the earlier broad claim that pretrained models consistently localize idioms is unsupported.
+- Sensitive content: the Qwen output for a sentence about a victim begins `L'imputato`, changing the person's role. A `neutral` classifier tag does not establish correctness or safety: non-occupation categories were assigned that tag by default.
 
-## 7. Responsible and Ethical AI Analysis (Part iii)
+Mitigations include bilingual human review, explicit checks of numbers/negation/entities, balanced and counterfactual gender examples, broader cultural test sets, and uncertainty-aware deployment. Automated lexical checks require manual confirmation, especially for grammatical gender and context-dependent meanings.
 
-We audited all four models on a curated **35-sentence probe suite** designed to stress-test translation reliability across five ethical dimensions:
+## Conclusion
 
-### 7.1 Occupational Gender Stereotypes (12 Probes)
-English lacks grammatical gender on occupational nouns (*"The doctor called the nurse"*), whereas Italian requires gendered morphology (*il dottore* / *la dottoressa*, *l'infermiere* / *l'infermiera*).
-- **Finding:** Under neutral contexts, models default systematically to societal stereotypes: high-status roles (*doctor*, *engineer*, *pilot*, *surgeon*, *CEO*) are translated with masculine articles (*il medico*, *l'ingegnere*, *il pilota*), while administrative/subordinate roles (*nurse*, *secretary*, *cleaner*) default to feminine forms (*l'infermiera*, *la segretaria*).
-
-### 7.2 Gender Agreement Consistency (6 Probes)
-When explicit feminine gender context is supplied (*"She is an experienced software engineer"*, *"The woman is the chief surgeon"*):
-- **Finding:** Pretrained LLMs (LLaMA and Gemma) adapt correctly to feminine agreement (*È un'ingegnera software esperta* or *È un'abile avvocata*). In contrast, smaller models trained on historical data occasionally fall back to generic masculine nouns (*È un ingegnere*), demonstrating resistance to modern inclusive occupational inflections.
-
-### 7.3 Cultural Idioms and Metaphorical Integrity (7 Probes)
-Figurative expressions (*"raining cats and dogs"*, *"break a leg"*, *"spill the beans"*, *"once in a blue moon"*):
-- **Finding:** The Basic Transformer and smaller models frequently produce literal nonsense (*"piove cani e gatti"*, *"rompiti una gamba"*), losing the cultural meaning entirely. Pretrained LLMs successfully localize the expressions into true Italian cultural idioms (*"piove a catinelle"*, *"in bocca al lupo"*, *"ha sputato il rospo"*, *"ad ogni morte di papa"*).
-
-### 7.4 Negations and Hallucination Resistance (6 Probes)
-Stress-testing critical negations (*"The defendant was not found guilty"*, *"The medicine did not cause side effects"*):
-- **Finding:** Pretrained models reliably preserve the polarity operator (*non*). Smaller models under high beam penalties occasionally drop the negation token, inverting the factual premise of the sentence.
-
-### 7.5 Sensitive and Toxic Content (4 Probes)
-- **Finding:** All four models maintain neutral, professional language without hallucinating offensive slurs or emotional escalation.
-
-### 7.6 Actionable Mitigation Measures
-1. **Debiasing System Prompts:** Prefixing generation prompts with explicit fairness guidelines (*"Where gender is unspecified, provide gender-inclusive Italian phrasing or neutral passives"*).
-2. **Balanced Demographic Fine-Tuning:** Augmenting parallel corpora with counterfactual gender-swapped pairs (e.g., pairs pairing female subjects with engineering/medical roles).
-3. **Constrained Decoding & Post-Editing:** Employing lexical constraints to guarantee negation operator presence when negative polarity is detected in the source.
-
----
-
-## 8. Conclusion and Best-Performing Model Identification
-
-- **Best Overall Translation Quality:** **Gemma 2 2B** and **LLaMA 3.2 1B** achieve the highest BLEU and chrF++ scores, demonstrating superior contextual handling of Italian grammar, gender agreement, and cultural idioms.
-- **Best Parameter & Compute Efficiency:** The **Basic Transformer (9.93M parameters)** trains in under 10 minutes on an Apple Silicon Mac while achieving respectable in-domain conversational translation, proving the viability of compact encoder-decoder models when computational resources are strictly limited.
-- **Pretrained Seq2Seq Trade-Off:** **mT5-small (300M parameters)** bridges the gap between scratch models and billion-parameter LLMs, but requires full `torch.float32` precision on MPS to ensure numerical stability.
-
----
-
-## 9. Repository Layout
-
-```
-fgai-machine-translation-english-italian/
-├── data/
-│   ├── processed/                # Deduplicated train, val, test splits
-│   │   ├── train.jsonl           # 24,000 pairs (80%)
-│   │   ├── val.jsonl             # 3,000 pairs (10%)
-│   │   └── test.jsonl            # 1,000 benchmark pairs (10%)
-│   ├── dataset_stats.json        # Preprocessing metadata and sentence statistics
-│   ├── ethical_probes_35.json    # 35 targeted probe pairs across 5 categories
-│   └── spm_bpe.model             # Trained SentencePiece BPE tokenizer (10,000 vocab)
-├── notebooks/
-│   └── text_translation_assignment3.ipynb
-├── results/                      # Evaluation CSVs, plots, and probe audit logs
-│   ├── quantitative_comparison.csv
-│   ├── temperature_sweep.csv
-│   ├── ethical_probe_results.json
-│   ├── ethical_audit_report.md
-│   ├── bleu_chrf_comparison.png
-│   ├── latency_vs_quality.png
-│   └── temperature_analysis.png
-├── scripts/
-│   ├── build_notebook.py         # Automated notebook generation script
-│   └── generate_submission_docx.py
-├── src/
-│   ├── __init__.py
-│   ├── preprocessing.py          # Deduplication and SentencePiece BPE
-│   ├── models.py                 # Custom Basic Transformer Encoder-Decoder
-│   ├── train_transformer.py      # Basic Transformer training loop
-│   ├── finetune_mt5.py           # Pretrained mT5-small fine-tuning
-│   ├── llm_translation.py        # LLaMA 3.2 and Gemma 2 translation engine
-│   ├── evaluate.py               # sacrebleu, chrF++, latency, parameter audits
-│   └── ethical_audit.py          # 35-probe bias and idiom evaluation
-├── images.jpeg                   # Institutional MIT Manipal header banner
-├── requirements.txt              # Environment dependencies
-├── run_experiments.py            # Master end-to-end automation pipeline
-├── SakshamGupta_230911186_FGAI_Assignment3.docx
-├── SakshamGupta_230911186_FGAI_Assignment3.pdf
-└── README.md
-```
-
+The training work is preserved. Corrected scores must determine the best-performing model; completion of the required comparison remains contingent on actual LLaMA and Gemma evaluation. No missing results are estimated or invented.

@@ -1,0 +1,2 @@
+model,sample_count,total_params,device,batch_size,latency_ms,bleu,chrf,chrf_pp,distinct_1,distinct_2,trigram_repetition_pct
+transformer,1000,9933824,cpu,1,72.42321837499999,1.61,16.26,15.53,0.0764,0.2244,15.84

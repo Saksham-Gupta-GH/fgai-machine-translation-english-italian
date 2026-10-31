@@ -229,7 +229,7 @@ def finetune_mt5_small(
 
 
 @torch.no_grad()
-def translate_mt5(model, tokenizer, texts, device, max_length=64, do_sample=False, num_beams=1):
+def translate_mt5(model, tokenizer, texts, device, max_length=64, do_sample=False, num_beams=1, temperature=1.0):
     """Generates translations using mT5 under comparable decoding settings."""
     model.eval()
     prefixed_texts = [TASK_PREFIX + t for t in texts]
@@ -240,7 +240,8 @@ def translate_mt5(model, tokenizer, texts, device, max_length=64, do_sample=Fals
     outputs = model.generate(
         input_ids=inputs.input_ids,
         attention_mask=inputs.attention_mask,
-        max_length=max_length,
+        max_new_tokens=max_length,
+        **({"temperature": temperature} if do_sample else {}),
         do_sample=do_sample,
         num_beams=num_beams,
     )

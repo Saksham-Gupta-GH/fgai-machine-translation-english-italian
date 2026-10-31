@@ -29,7 +29,7 @@ def run_full_pipeline(
     temp_sweep_limit=300,
 ):
     os.makedirs(results_dir, exist_ok=True)
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"\n==================================================================")
     print(f"FGAI Assignment 3: Machine Translation Master Pipeline (en -> it)")
     print(f"  Device: {device}")
@@ -134,7 +134,7 @@ def run_full_pipeline(
     print("Translating test set with mT5-small (Greedy, do_sample=False)...")
     t0 = time.time()
     # Batch translation for faster evaluation
-    batch_size_eval = 32
+    batch_size_eval = 1
     mt5_preds = []
     for i in range(0, len(test_en), batch_size_eval):
         batch_chunk = test_en[i : i + batch_size_eval]
@@ -254,7 +254,7 @@ def run_full_pipeline(
                 temperature=temp,
             )
         else:
-            s_preds = translate_mt5(sweep_model, sweep_tok, sweep_subset_en, device, do_sample=True)
+            s_preds = translate_mt5(sweep_model, sweep_tok, sweep_subset_en, device, do_sample=True, temperature=temp)
 
         ev = evaluate_translations(s_preds, sweep_subset_it)
         sweep_results.append(
@@ -285,8 +285,14 @@ def run_full_pipeline(
 
     plot_metric_comparisons(model_results_table, output_dir=results_dir)
 
+    # Persist generated text so later metric corrections never require retraining.
+    with open(os.path.join(results_dir, "test_predictions.json"), "w") as f:
+        json.dump({"source": test_en, "references": test_it_gold, "predictions": model_predictions}, f, ensure_ascii=False)
+    if len(model_results_table) != 4:
+        raise RuntimeError("Incomplete required comparison: LLaMA or Gemma failed; partial results saved")
+
     # Build Word document
-    build_submission_docx()
+    # Submission documents are maintained separately.
     print("\n=======================================================")
     print("Master Pipeline Successfully Completed!")
     print("=======================================================\n")

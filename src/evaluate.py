@@ -61,6 +61,8 @@ def compute_diversity_metrics(texts):
 
 def evaluate_translations(predictions, references):
     """Computes all core translation quality metrics."""
+    if not predictions or len(predictions) != len(references):
+        raise ValueError("Predictions and references must have equal nonzero lengths")
     return {
         "bleu": compute_bleu(predictions, references),
         "chrf": compute_chrf(predictions, references),

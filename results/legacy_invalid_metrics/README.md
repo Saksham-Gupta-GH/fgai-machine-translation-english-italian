@@ -1,0 +1,1 @@
+Historical notebook outputs, NOT valid corpus scores. The reference matrix was transposed incorrectly. Timing also mixed batch sizes (mT5: 32; others: 1). Retained only for provenance; do not use for ranking.
