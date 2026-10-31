@@ -151,7 +151,7 @@ def finetune_mt5_small(
     print(f"=======================================================\n")
 
     # Strictly torch.float32 to avoid NaN overflow in mT5 LayerNorm
-    model = MT5ForConditionalGeneration.from_pretrained(model_name, dtype=torch.float32).to(device)
+    model = MT5ForConditionalGeneration.from_pretrained(model_name, torch_dtype=torch.float32, tie_word_embeddings=False).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

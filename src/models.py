@@ -158,6 +158,7 @@ class BasicTransformer(nn.Module):
             )
             prob = self.generator(out[:, -1])  # Predict next token from the last position
             next_word = torch.argmax(prob, dim=1)
+            next_word = torch.where(finished, self.eos_idx, next_word)
 
             ys = torch.cat([ys, next_word.unsqueeze(1)], dim=1)
 

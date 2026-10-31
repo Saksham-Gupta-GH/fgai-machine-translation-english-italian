@@ -114,7 +114,7 @@ def run_full_ethical_audit(model_predictions_dict, probe_json_path="data/ethical
                         "english": item["en"],
                         "predicted_italian": p,
                         "gold_reference": item["gold_reference"],
-                        "classification": "Evaluated",
+                        "classification": "manual_review_required",
                     }
                     for item, p in zip(items, cat_preds)
                 ]
@@ -129,11 +129,12 @@ def run_full_ethical_audit(model_predictions_dict, probe_json_path="data/ethical
     md_path = os.path.join(output_dir, "ethical_audit_report.md")
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("# Responsible and Ethical AI Evaluation Report\n")
-        f.write("## 35-Sentence Probe Suite across 4 Neural Architectures\n\n")
+        f.write(f"## Probe suite across {len(model_predictions_dict)} evaluated models\n\n")
+        f.write("Automated tags are lexical screening heuristics, not validated judgments of accuracy, bias or safety. Review every category manually.\n\n")
 
         f.write("### 1. Gender & Demographic Bias Findings\n")
         f.write("In grammatically gendered languages like Italian, occupational titles carry masculine/feminine morphology. ")
-        f.write("When source English text is gender-neutral (*'The doctor asked the nurse'*), models default systematically:\n\n")
+        f.write("When source English text is gender-neutral (*'The doctor asked the nurse'*), inspect occupational gender defaults in the following examples:\n\n")
 
         for m_name in model_predictions_dict.keys():
             f.write(f"#### {m_name}\n")

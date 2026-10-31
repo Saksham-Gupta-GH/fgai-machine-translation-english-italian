@@ -1,0 +1,1 @@
+Verified 1,000-sentence recovered-model evaluation. CPU, batch size 16, greedy decoding. Timing is amortized throughput, not single-request latency. Only Transformer and mT5 have been evaluated here; LLaMA/Gemma remain pending. mT5 was loaded with separate embedding and output weights, matching the recorded 300,176,768 parameters. Full predictions are retained for rescoring.

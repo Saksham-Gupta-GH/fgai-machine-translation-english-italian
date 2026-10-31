@@ -14,9 +14,12 @@ def main():
     root=Path(__file__).resolve().parents[1]
     output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(args.archive) as archive:
+        required={'basic_transformer_best.pt','mt5_small_best/model.safetensors','mt5_small_best/tokenizer.json','mt5_small_best/config.json'}
+        missing=required-set(archive.namelist())
+        if missing: raise ValueError(f'Archive is missing saved model files: {sorted(missing)}')
         for info in archive.infolist():
             name=info.filename
-            if name=='basic_transformer_best.pt' or name.startswith('mt5_small_best/'):
+            if name in ('basic_transformer_best.pt','basic_transformer_history.json','mt5_small_history.json') or name.startswith('mt5_small_best/'):
                 target=(output/'results'/name).resolve()
                 if not target.is_relative_to(output/'results'):raise ValueError('Unsafe archive path')
                 if info.is_dir():target.mkdir(parents=True,exist_ok=True)
